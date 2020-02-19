@@ -1,0 +1,460 @@
+/dts-v1/;
+
+#include "zynqmp.dtsi"
+#include "zynqmp-clk-ccf.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
+#include <dt-bindings/phy/phy.h>
+
+/ {
+	model = "Trenz Electronic TE0820-03-03EG";
+	compatible = "xlnx,te0820-03-03eg", "xlnx,zynqmp";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	aliases {
+		ethernet0 = &gem3;
+		/*gpio0 = &gpio;*/
+		i2c0 = &i2c0;
+		mmc0 = &sdhci1;
+		mmc1 = &sdhci0;
+		rtc0 = &rtc;
+		serial0 = &uart0;
+		/*serial1 = &dcc;*/
+		spi0 = &qspi;
+		/*usb0 = &usb0;*/
+	};
+
+	chosen {
+		bootargs = "earlycon";
+		stdout-path = "serial0:115200n8";
+		xlnx,eeprom = &eeprom;
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x7ff00000>;
+	};
+
+	dcc: dcc {
+		compatible = "arm,dcc";
+		status = "disabled";
+		u-boot,dm-pre-reloc;
+	};
+
+	clk_xin: clk_xin {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <200000000>;
+	};
+
+	ref25: ref25M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+};
+
+&dcc {
+	status = "okay";
+};
+
+&fpd_dma_chan1 {
+	status = "okay";
+};
+
+&fpd_dma_chan2 {
+	status = "okay";
+};
+
+&fpd_dma_chan3 {
+	status = "okay";
+};
+
+&fpd_dma_chan4 {
+	status = "okay";
+};
+
+&fpd_dma_chan5 {
+	status = "okay";
+};
+
+&fpd_dma_chan6 {
+	status = "okay";
+};
+
+&fpd_dma_chan7 {
+	status = "okay";
+};
+
+&fpd_dma_chan8 {
+	status = "okay";
+};
+
+&gpio {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio_default>;
+};
+
+/*&gpu {
+	status = "okay";
+};
+
+ref25: ref25M {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <25000000>;
+};*/
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&pinctrl_i2c0_default>;
+	pinctrl-1 = <&pinctrl_i2c0_gpio>;
+	scl-gpios = <&gpio 38 GPIO_ACTIVE_HIGH>;
+	sda-gpios = <&gpio 39 GPIO_ACTIVE_HIGH>;
+
+	/* U25
+	Microchip 24AA025E48T-I/OT
+	2kb (256 Byte) EEPROM
+	16 Byte Pages
+	*/
+	eeprom: eeprom@50 {
+		compatible = "microchip,24c02";
+		pagesize = <16>;
+		reg = <0x50>;
+		/* read-only */
+
+		/* 
+		Designate the last 6 bytes of the EEPROM to
+		the MAC address.
+		*/
+		mac_addr: mac_addr@fa{
+			reg = <0xFA 0x6>;
+		};
+	};
+
+	/* U10
+	SI5338A-B-GMR
+	Clock Generator
+	*/
+	si5338: clock-generator@38 {
+		compatible = "silabs,si5338";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+
+		/* Connect IN3 to 25Mhz clock */
+		clocks = <0>, <&ref25>, <0>, <0>, <0>;
+		clock-names = "in12", "in3", "in4", "in5", "in6";
+
+		/* Set the reference clock to the 25Mhz */
+		silab,ref-source = <SI5338_REF_SRC_CLKIN3>;
+
+		/* output */
+		clkout0 {
+			reg = <0>;
+			silabs,drive-config = "1V8_LVDS";
+			silabs,clock-source = <SI5338_OUT_MUX_MS0>;
+			silabs,disable-state = <SI5338_OUT_DIS_HIZ>;
+			clock-frequency = <125000000>;
+		};
+		clkout1 {
+			reg = <1>;
+			silabs,drive-config = "1V8_LVDS";
+			silabs,clock-source = <SI5338_OUT_MUX_MSN>;
+			silabs,disable-state = <SI5338_OUT_DIS_HIZ>;
+			clock-frequency = <125000000>;
+		};
+		clkout2 {
+			reg = <2>;
+			silabs,drive-config = "1V8_LVDS";
+			silabs,clock-source = <SI5338_OUT_MUX_MSN>;
+			silabs,disable-state = <SI5338_OUT_DIS_HIZ>;
+			clock-frequency = <125000000>;
+		};
+	};	
+};
+
+&pinctrl0 {
+	status = "okay";
+	pinctrl_i2c0_default: i2c0-default {
+		mux {
+			groups = "i2c0_3_grp";
+			function = "i2c0";
+		};
+
+		conf {
+			groups = "i2c0_3_grp";
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_i2c0_gpio: i2c0-gpio {
+		mux {
+			groups = "gpio0_38_grp", "gpio0_39_grp";
+			function = "gpio0";
+		};
+
+		conf {
+			groups = "gpio0_38_grp", "gpio0_39_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_uart0_default: uart0-default {
+		mux {
+			groups = "uart0_4_grp";
+			function = "uart0";
+		};
+
+		conf {
+			groups = "uart0_4_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO30";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO31";
+			bias-disable;
+		};
+	};
+
+	pinctrl_usb0_default: usb0-default {
+		mux {
+			groups = "usb0_0_grp";
+			function = "usb0";
+		};
+
+		conf {
+			groups = "usb0_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO52", "MIO53", "MIO55";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO54", "MIO56", "MIO57", "MIO58", "MIO59",
+			       "MIO60", "MIO61", "MIO62", "MIO63";
+			bias-disable;
+		};
+	};
+
+	pinctrl_gem3_default: gem3-default {
+		mux {
+			function = "ethernet3";
+			groups = "ethernet3_0_grp";
+		};
+
+		conf {
+			groups = "ethernet3_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO70", "MIO71", "MIO72", "MIO73", "MIO74",
+									"MIO75";
+			bias-high-impedance;
+			low-power-disable;
+		};
+
+		conf-tx {
+			pins = "MIO64", "MIO65", "MIO66", "MIO67", "MIO68",
+									"MIO69";
+			bias-disable;
+			low-power-enable;
+		};
+
+		mux-mdio {
+			function = "mdio3";
+			groups = "mdio3_0_grp";
+		};
+
+		conf-mdio {
+			groups = "mdio3_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+	};
+
+	pinctrl_sdhci1_default: sdhci1-default {
+		mux {
+			groups = "sdio1_0_grp";
+			function = "sdio1";
+		};
+
+		conf {
+			groups = "sdio1_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+
+		mux-cd {
+			groups = "sdio1_cd_0_grp";
+			function = "sdio1_cd";
+		};
+
+		conf-cd {
+			groups = "sdio1_cd_0_grp";
+			bias-high-impedance;
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		mux-wp {
+			groups = "sdio1_wp_0_grp";
+			function = "sdio1_wp";
+		};
+
+		conf-wp {
+			groups = "sdio1_wp_0_grp";
+			bias-high-impedance;
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_gpio_default: gpio-default {
+		mux-sw {
+			function = "gpio0";
+			groups = "gpio0_24_grp", "gpio0_25_grp";
+		};
+
+		conf-sw {
+			groups = "gpio0_24_grp", "gpio0_25_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-pull-up {
+			pins = "MIO24", "MIO25";
+			bias-pull-up;
+		};
+	};
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <1>;
+	flash@0 {
+		compatible = "m25p80", "spi-flash"; /* 32MB */
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x0>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>; /* FIXME also DUAL configuration possible */
+		spi-max-frequency = <108000000>; /* Based on DC1 spec */
+		partition@qspi-fsbl-uboot { /* for testing purpose */
+			label = "qspi-fsbl-uboot";
+			reg = <0x0 0x100000>;
+		};
+		partition@qspi-linux { /* for testing purpose */
+			label = "qspi-linux";
+			reg = <0x100000 0x500000>;
+		};
+		partition@qspi-device-tree { /* for testing purpose */
+			label = "qspi-device-tree";
+			reg = <0x600000 0x20000>;
+		};
+		partition@qspi-rootfs { /* for testing purpose */
+			label = "qspi-rootfs";
+			reg = <0x620000 0x5E0000>;
+		};
+	};
+};
+
+&rtc {
+	status = "okay";
+};
+
+/* eMMC Card */
+&sdhci0 {
+	status = "disabled";
+	bus-width = <0x8>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdhci0_default>;
+	xlnx,mio_bank = <0>;
+	non-removable;
+	disable-wp;
+	cap-mmc-hw-reset;
+};
+
+/* SD1 with level shifter */
+&sdhci1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdhci1_default>;
+	no-1-8-v;
+	xlnx,mio_bank = <0>;
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0_default>;
+};
+
+/* ULPI SMSC USB3320 */
+/*&usb0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb0_default>;
+};*/
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "host";
+	snps,usb3_lpm_capable;
+	phy-names = "usb3-phy";
+	phys = <&lane2 PHY_TYPE_USB3 0 2 26000000>;
+	maximum-speed = "super-speed";
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&xilinx_ams {
+	status = "okay";
+};
+
+&ams_ps {
+	status = "okay";
+};
+
+&ams_pl {
+	status = "okay";
+};
+
+/* ETH PHY */
+&gem3 {
+	status = "okay";
+    ethernet_phy0: ethernet-phy@0 {
+	    compatible = "marvell,88e1510";
+		device_type = "ethernet-phy";
+		nvmem-cells = <&mac_addr>;
+		nvmem-cell-names = "mac-address";
+    	reg = <1>;
+	};
+};
