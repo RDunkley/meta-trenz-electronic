@@ -1,0 +1,495 @@
+/*
+###################################################################################################
+# Defines the hardware in the TE0807-02-07EV Trenz Electronic Board with TEBF0808 Carrier Card.
+# Copyright Sequent Logic 2022
+###################################################################################################
+*/
+
+/ {
+	model = "Trenz Electronic TE0807-02-07EV with TEBF0808";
+	compatible = "xlnx,te0807-02-07ev", "xlnx,zynqmp";
+
+	aliases {
+		ethernet0 = &gem3;
+		gpio0 = &gpio;
+		i2c0 = &i2c0;
+		mmc0 = &sdhci1;
+		mmc1 = &sdhci0;
+		rtc0 = &rtc;
+		serial0 = &uart0;
+		spi0 = &qspi;
+		usb0 = &usb0;
+	};
+
+	chosen {
+		bootargs = "earlycon root=/dev/mmcblk1p2";
+		stdout-path = "serial0:115200n8";
+		xlnx,eeprom = &eeprom;
+	};
+
+	/* 50 MHz clock used to drive SI5345 on SOM */
+	ref50: ref50M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <50000000>;
+	};
+
+	/* B505 Reference Clock 1 Generated on Carrier */
+	ref150: ref150M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <150000000>;
+	};
+
+	/* B505 Reference Clock 0 Generated on Carrier */
+	ref100: ref100M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+	};
+};
+
+/* USB 3.0  */
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "host";
+	snps,usb3_lpm_capable;
+
+	/* Configure the GTR lane 1 reference clock 3 clock */
+	/* Set output 6 to use synthesizer 3 as it's parent */
+	assigned-clocks = <&si5345 0 6>;
+	assigned-clock-parents = <&si5345 1 3>;
+
+	/* Set output 6 to 26 MHz */
+	assigned-clock-rates = <26000000>;
+};
+   
+/* ETH PHY */
+&gem3 {
+	status = "okay";
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+	/*pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gem3_default>;*/
+	phy0: phy@0 {
+		compatible = "marvell,88e1510";
+		device_type = "ethernet-phy";
+		nvmem-cells = <&mac_addr>;
+		nvmem-cell-names = "mac-address";
+		reg = <1>;
+	};
+};
+
+&gpu {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	i2c-mux@73 { /* U16 */
+		compatible = "nxp,pca9548";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x73>;
+		i2c@0 { /* MCLK */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* NC */
+		};
+		i2c@1 { /* SFP */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			/* U44 (Carrier) */
+			pcf8574: pcf8574_0@26 {
+				compatible = "nxp,pcf8574";
+				reg = <0x26>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <8>;
+				gpio-line-names = "SFP2_M-DEF0", "SFP1_TX_FAULT", "SFP2_RS0", "SFP2_RS1", "SFP1_RS1", "SFP1_RS0", "SFP1_M-DEF0", "SFP2_TX_FAULT";
+			};
+		};
+		i2c@2 { /* PCIe */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			/* NC */
+		};
+		i2c@3 { /* SFP1 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+			/* NC */
+		};
+		i2c@4 { /* SFP2 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+			/* NC */
+		};
+		i2c@5 { /* MEM */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+
+			/* U38 (Carrier) */
+			pcf8574: pcf8574_1@27 {
+				compatible = "nxp,pcf8574";
+				reg = <0x27>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <8>;
+				gpio-line-names = "WAKE", "PRSNT1", "FMC_PG_M2C", "FMC_PRSNT_M2C", "PRSNT2", "PRSNT3", "PRSNT4", "PRSNT5";
+			};
+
+			/* U42 (Carrier)
+			   Microchip 24AA025E48T-I/OT
+			   2kb (256 Byte) EEPROM
+			   16 Byte Pages
+			*/
+			eeprom: eeprom1@50 {
+				/* Include the "atmel,24c02" so that the Xilinx GEM driver will
+				   recognize it and load the MAC address from it.
+				   */
+				compatible = "microchip,24c02", "atmel,24c02";
+				pagesize = <16>;
+				reg = <0x50>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				/* read-only */
+			};
+
+			/* U41 (Carrier)
+			   Microchip 24AA025E48T-I/OT
+			   2kb (256 Byte) EEPROM
+			   16 Byte Pages
+			*/
+			eeprom: eeprom2@51 {
+				/* Include the "atmel,24c02" so that the Xilinx GEM driver will
+				   recognize it and load the MAC address from it.
+				   */
+				compatible = "microchip,24c02", "atmel,24c02";
+				pagesize = <16>;
+				reg = <0x51>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+			};
+
+			/* U36 (Carrier)
+			   Microchip 24AA025E48T-I/OT
+			   2kb (256 Byte) EEPROM
+			   16 Byte Pages
+			*/
+			eeprom: eeprom3@52 {
+				/* Include the "atmel,24c02" so that the Xilinx GEM driver will
+				   recognize it and load the MAC address from it.
+				   */
+				compatible = "microchip,24c02", "atmel,24c02";
+				pagesize = <16>;
+				reg = <0x52>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+			};
+
+			/* U24 (Carrier)
+			   Microchip 24LC128-I/ST
+			   128kb (16K Byte) EEPROM
+			   64 Byte Pages
+			*/
+			eeprom: eeprom4@54 {
+				/* Include the "atmel,24c02" so that the Xilinx GEM driver will
+				   recognize it and load the MAC address from it.
+				   */
+				compatible = "microchip,24c128", "atmel,24c128";
+				pagesize = <64>;
+				reg = <0x54>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+			};
+		};
+		i2c@6 { /* FMC */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+			/* NC */
+		};
+		i2c@7 { /* USBH */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+			/* NC */
+		};
+	};
+
+	i2c-mux@77 { /* U16 */
+		compatible = "nxp,pca9548";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x77>;
+		i2c@0 { /* PMOD */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* NC */
+		};
+		i2c@1 { /* A_I2C */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			/* NC */
+		};
+		i2c@2 { /* FFA */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			/* NC */
+		};
+		i2c@3 { /* FFB */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+			/* NC */
+		};
+		i2c@4 { /* PLL */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+
+			/* U11 (SOM)
+			Microchip 24AA025E48T-I/OT
+			2kb (256 Byte) EEPROM
+			16 Byte Pages
+			*/
+			eeprom: eeprom0@50 {
+				/* Include the "atmel,24c02" so that the Xilinx GEM driver will
+				   recognize it and load the MAC address from it.
+				   */
+				compatible = "microchip,24c02", "atmel,24c02";
+				pagesize = <16>;
+				reg = <0x50>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				/* read-only */
+
+				/* 
+				Designate the last 6 bytes of the EEPROM to
+				the MAC address.
+				*/
+				mac_addr: mac_addr@fa{
+					reg = <0xFA 0x6>;
+				};
+			};
+
+			/* U5 (SOM)
+			SI5345A-B-GM
+			Clock Generator
+			*/
+			si5345: clock-generator@69 {
+				compatible = "silabs,si5345";
+				reg = <0x69>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				#clock-cells = <2>;
+
+				/* Connect 50 MHz XTAL clock */
+				clocks = <&ref50>;
+				clock-names = "xtal";
+
+				silabs,pll-m-num = <13200>; /* PLL at 13.2 GHz */
+				silabs,pll-m-den = <48>;
+				/*silabs,reprogram; /* Don't enbale this if some of the clocks are configured elsewhere. */
+
+				/* Set the reference clock to the 25Mhz (SI5338_REF_SRC_CLKIN3) */
+				silab,ref-source = <1>;
+
+				/* If the output clocks are programmed by assigned-clock* later in the device tree then they must
+				be a synth-master here (and set to a separate synth-master). If two devices are assigned to the same
+				MultiSynth then upon boot the second device will most likely mess up the first (since it will change
+				its frequency). To avoid this only 5 of the below outputs are allowed to be synth-masters.*/
+
+				/* GTR 505 Reference Clock 2 (Used for Display Port) */
+				out@5 {
+					reg = <5>;
+					silabs,format = <1>; /* LVDS 3v3 */
+					silabs,common-mode = <3>;
+					silabs,amplitude = <3>;
+					silabs,synth-master; /* Allowed to change dynamically */
+					always-on; /* assigned-clocks does not enable so do it here */
+				};
+
+				/* GTR 505 Reference Clock 3 (Used for USB3.0) */
+				out@6 {
+					reg = <6>;
+					silabs,format = <1>; /* LVDS 3v3 */
+					silabs,common-mode = <3>;
+					silabs,amplitude = <3>;
+					silabs,synth-master; /* Allowed to change dynamically */
+					always-on; /* assigned-clocks does not enable so do it here */
+				};
+			};
+		};
+		i2c@5 { /* SC */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+			/* NC */
+		};
+		i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+
+			/* U34 (Carrier) */
+			pcf8574: pcf8574_2@24 {
+				compatible = "nxp,pcf8574";
+				reg = <0x24>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <7>;
+				gpio-line-names = "FF_RSTL", "FFB_INTL", "FFB_MSEL", "FFB_MPRS", "FFA_MPRS", "FFA_MSEL", "FFA_INTL";
+			};
+		};
+		i2c@7 { /* EXT */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+			/* NC */
+		};
+	};
+};
+
+&qspi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	is-dual = <1>;
+	flash@0 {
+		compatible = "micron,n25q512a", "jedec,spi-nor"; /* 128MB */
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x0>;
+		spi-max-frequency = <108000000>; /* Based on Datasheet */
+
+		/* The following partitions are untested and addresses
+			may not be correct. */
+/*		partition@qspi-fsbl-uboot { /* for testing purpose */
+/*			label = "qspi-fsbl-uboot";
+			reg = <0x0 0x100000>;
+		};
+		partition@qspi-linux { /* for testing purpose */
+/*			label = "qspi-linux";
+			reg = <0x100000 0x500000>;
+		};
+		partition@qspi-device-tree { /* for testing purpose */
+/*			label = "qspi-device-tree";
+        	reg = <0x600000 0x20000>;
+		};
+		partition@qspi-rootfs { /* for testing purpose */
+/*			label = "qspi-rootfs";
+			reg = <0x620000 0x5E0000>;
+		};*/
+	};
+};
+
+&rtc {
+	status = "okay";
+};
+
+&sata {
+	status = "okay";
+};
+
+/* 
+    eMMC Card
+    Currently unused. If this is enabled there is no guarantee that the kernel will pick the correct
+    boot device since mmcblk0p2 can change based on enumeration. Couldn't get UUID to work in uEnv.txt
+    so this is currently disabled.
+*/
+&sdhci0 {
+	status = "disabled";
+	bus-width = <0x8>;
+	xlnx,mio_bank = <0>;
+	non-removable;
+	disable-wp;
+	cap-mmc-hw-reset;
+};
+
+/* 
+    SD1 with level shifter
+    Power Enable, and Write Protect are unused on the TEBF0808 board so the settings
+    below accomodate this. Note: disable-wp must be set to prevent a kernel panic if
+    the card detect is not available and we are mouting a rw file system.
+
+    The TEBF0808 board has a microSD card slot and SDIO slot. This device tree assumes
+    the on-board CPLDs are programmed to correctly route the appropriate signals to the
+    SOM (CD, etc.).
+*/
+&sdhci1 {
+	status = "okay";
+	bus-width = <0x4>;
+	xlnx,has-cd = <0x1>;
+	xlnx,has-power = <0x0>;
+	xlnx,has-wp = <0x0>;
+	no-1-8-v;
+	xlnx,mio_bank = <0>;
+	disable-wp;
+	xlnx,sdio-clk-freq-hz = <0x2faf080>; /* 50 MHz */
+	broken-adma2 = <0x1>;
+};
+
+&serdes {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+	/*/delete-property/ clocks;
+	/delete-property/ clock-names;
+	clocks = <0x3 0x20>;
+	clock-names = "bus_clk";*/
+};
+
+&zynqmp_dpsub {
+	status = "okay";
+//	phy-names = "dp-phy0", "dp-phy1";
+	/* Display Port (PHY_TYPE_DP=6) Lane 3 using PS GTR Ref clock 1 at 27 MHz */
+	/* Display Port (PHY_TYPE_DP=6) Lane 2 using PS GTR Ref clock 1 at 27 MHz */
+//	phys = <&lane3 6 0 1 27000000>, <&lane2 6 1 1 27000000>;
+
+	/* Configure the GTR lane 3 reference clock 2 clock */
+	/* Set output 5 to use synthesizer 2 as it's parent */
+	assigned-clocks = <&si5341 0 5>;
+	assigned-clock-parents = <&si5341 1 2>;
+
+	/* Set output 5 to 27 MHz */
+	assigned-clock-rates = <27000000>;
+};
+
+&zynqmp_dp_snd_pcm0 {
+	status = "okay";
+};
+
+&zynqmp_dp_snd_pcm1 {
+	status = "okay";
+};
+
+&zynqmp_dp_snd_card0 {
+	status = "okay";
+};
+
+&zynqmp_dp_snd_codec0 {
+	status = "okay";
+};
+
+&xlnx_dpdma {
+	status = "okay";
+};
