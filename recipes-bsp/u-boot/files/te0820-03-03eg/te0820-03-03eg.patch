@@ -1,0 +1,241 @@
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 51f2376000..7c1e6571d7 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -323,6 +323,7 @@ dtb-$(CONFIG_ARCH_ZYNQ) += \
+ 	zynq-zybo.dtb \
+ 	zynq-zybo-z7.dtb
+ dtb-$(CONFIG_ARCH_ZYNQMP) += \
++	te0820-03-03eg.dtb			\
+ 	avnet-ultra96-rev1.dtb			\
+ 	avnet-ultrazedev-cc-v1.0-ultrazedev-som-v1.0.dtb	\
+ 	zynqmp-a2197-revA.dtb			\
+diff --git a/arch/arm/dts/te0820-03-03eg.dts b/arch/arm/dts/te0820-03-03eg.dts
+new file mode 100644
+index 0000000000..25721daf91
+--- /dev/null
++++ b/arch/arm/dts/te0820-03-03eg.dts
+@@ -0,0 +1,223 @@
++/dts-v1/;
++/*
++###################################################################################################
++# Defines the hardware in the TE0820-03-03EG Trenz Electronic Board.
++# Copyright Richard Dunkley 2025
++###################################################################################################
++*/
++
++#include "zynqmp.dtsi"
++#include "zynqmp-clk-ccf.dtsi"
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
++#include <dt-bindings/phy/phy.h>
++
++/ {
++	model = "Trenz Electronic TE0820-03-03EG";
++	compatible = "xlnx,te0820-03-03eg", "xlnx,zynqmp";
++
++	aliases {
++		ethernet0 = &gem3;
++		gpio0 = &gpio;
++		i2c0 = &i2c0;
++		mmc0 = &sdhci1;
++		mmc1 = &sdhci0;
++		rtc0 = &rtc;
++		serial0 = &uart0;
++		spi0 = &qspi;
++		usb0 = &usb0;
++	};
++
++	chosen {
++		bootargs = "earlycon root=/dev/mmcblk1p2";
++		stdout-path = "serial0:115200n8";
++		xlnx,eeprom = &eeprom;
++	};
++
++	ref25: ref25M {
++	    compatible = "fixed-clock";
++	    #clock-cells = <0>;
++	    clock-frequency = <25000000>;
++    };
++};
++
++&i2c0 {
++	status = "okay";
++	clock-frequency = <400000>;
++
++	/* U25
++	Microchip 24AA025E48T-I/OT
++	2kb (256 Byte) EEPROM
++	16 Byte Pages
++	*/
++	eeprom: eeprom@50 {
++		/* Include the "atmel,24c02" so that the Xilinx GEM driver will
++		   recognize it and load the MAC address from it.
++		   */
++		compatible = "microchip,24c02", "atmel,24c02";
++		pagesize = <16>;
++		reg = <0x50>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		/* read-only */
++
++		/* 
++		Designate the last 6 bytes of the EEPROM to
++		the MAC address.
++		*/
++		mac_addr: mac_addr@fa{
++			reg = <0xFA 0x6>;
++		};
++	};
++
++	/* U10
++	SI5338A-B-GMR
++	Clock Generator
++	*/
++	si5338: clock-generator@70 {
++		compatible = "silabs,si5338";
++		reg = <0x70>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		#clock-cells = <1>;
++
++		/* Connect IN3 to 25Mhz clock */
++		clocks = <0>, <&ref25>, <0>, <0>, <0>;
++		clock-names = "in12", "in3", "in4", "in5", "in6";
++
++		/* Set the reference clock to the 25Mhz (SI5338_REF_SRC_CLKIN3) */
++		silab,ref-source = <1>;
++
++		/* output (Clocks currently are not correct) */
++		clkgen0: clkout0@0 {
++			reg = <0>;
++			silabs,drive-config = "1V8_LVDS";
++			silabs,clock-source = <5>; /* SI5338_OUT_MUX_MS0 */
++			silabs,disable-state = <0>; /* SI5338_OUT_DIS_HIZ */
++			clock-frequency = <125000000>;
++		};
++		clkgen1: clkout1@1 {
++			reg = <1>;
++			silabs,drive-config = "1V8_LVDS";
++			silabs,clock-source = <6>; /* SI5338_OUT_MUX_MSN */
++			silabs,disable-state = <0>; /* SI5338_OUT_DIS_HIZ */
++			clock-frequency = <125000000>;
++		};
++		clkgen2: clkout2@2 {
++			reg = <2>;
++			silabs,drive-config = "1V8_LVDS";
++			silabs,clock-source = <6>; /* SI5338_OUT_MUX_MSN */
++			silabs,disable-state = <0>; /* SI5338_OUT_DIS_HIZ */
++			clock-frequency = <125000000>;
++		};
++	};
++};
++
++&qspi {
++	#address-cells = <1>;
++    #size-cells = <0>;
++    status = "okay";
++	is-dual = <1>;
++	flash@0 {
++		compatible = "micron,n25q512a", "jedec,spi-nor"; /* 128MB */
++		#address-cells = <1>;
++		#size-cells = <1>;
++		reg = <0x0>;
++		spi-max-frequency = <108000000>; /* Based on Datasheet */
++
++		/* The following partitions are untested and addresses
++			may not be correct. */
++/*		partition@qspi-fsbl-uboot { /* for testing purpose */
++/*			label = "qspi-fsbl-uboot";
++			reg = <0x0 0x100000>;
++		};
++		partition@qspi-linux { /* for testing purpose */
++/*			label = "qspi-linux";
++			reg = <0x100000 0x500000>;
++		};
++		partition@qspi-device-tree { /* for testing purpose */
++/*			label = "qspi-device-tree";
++        	reg = <0x600000 0x20000>;
++		};
++		partition@qspi-rootfs { /* for testing purpose */
++/*			label = "qspi-rootfs";
++			reg = <0x620000 0x5E0000>;
++		};*/
++	};
++};
++
++&rtc {
++	status = "okay";
++};
++
++/* 
++    eMMC Card
++    Currently unused. If this is enabled there is no guarantee that the kernel will pick the correct
++    boot device since mmcblk0p2 can change based on enumeration. Couldn't get UUID to work in uEnv.txt
++    so this is currently disabled.
++*/
++&sdhci0 {
++	status = "disabled";
++	bus-width = <0x8>;
++	xlnx,mio_bank = <0>;
++	non-removable;
++	disable-wp;
++	cap-mmc-hw-reset;
++};
++
++/* 
++    SD1 with level shifter 
++    Card Detect, Power Enable, and Write Protect are unused on the TE0706 board
++    so the settings below accomodate this. Note: disable-wp must be set to prevent
++    a kernel panic since the card detect is not available and we are mouting a rw
++    file system.
++*/
++&sdhci1 {
++	status = "okay";
++    bus-width = <0x4>;
++    xlnx,has-cd = <0x0>;
++    xlnx,has-power = <0x0>;
++    xlnx,has-wp = <0x0>;
++	no-1-8-v;
++	xlnx,mio_bank = <0>;
++    disable-wp;
++    xlnx,sdio-clk-freq-hz = <0x2faf080>;
++    broken-adma2 = <0x1>;
++};
++
++/* ETH PHY */
++&gem3 {
++	status = "okay";
++    ethernet_phy0: ethernet-phy@0 {
++	    compatible = "marvell,88e1510";
++		device_type = "ethernet-phy";
++		nvmem-cells = <&mac_addr>;
++		nvmem-cell-names = "mac-address";
++    	reg = <1>;
++	};
++};
++
++&uart0 {
++	status = "okay";
++};
++
++/* USB  */
++&dwc3_0 {
++    status = "okay";
++    dr_mode = "host";
++    maximum-speed = "high-speed";
++    /delete-property/phy-names;
++    /delete-property/phys;
++    /delete-property/snps,usb3_lpm_capable;
++ 	 snps,dis_u2_susphy_quirk;
++  	snps,dis_u3_susphy_quirk;
++};
++   
++&usb0 {
++    status = "okay";
++    /delete-property/ clocks;
++    /delete-property/ clock-names;
++    clocks = <0x3 0x20>;
++    clock-names = "bus_clk";
++};

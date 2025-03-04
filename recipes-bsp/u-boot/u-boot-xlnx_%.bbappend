@@ -12,15 +12,16 @@ HAS_PLATFORM_INIT ?= " \
 	te0820-03-03eg \
 	"
 
-FILESEXTRAPATHS_prepend := "${THISDIR}/files/te0820-03-03eg:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files/te0820-03-03eg:"
 
 # TE0820-03-03EG
-COMPATIBLE_MACHINE_te0820-03-03eg = "te0820-03-03eg"
-SRC_URI_append = " \
+COMPATIBLE_MACHINE:te0820-03-03eg = "te0820-03-03eg"
+SRC_URI:append = " \
 	file://te0820-03-03eg_defconfig \
+	file://te0820-03-03eg.patch \
 	"
 
-do_unpack_append () {
+do_unpack:append () {
     bb.build.exec_func('do_modify_src', d)
 }
 

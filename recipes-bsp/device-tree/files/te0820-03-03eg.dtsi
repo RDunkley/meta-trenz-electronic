@@ -108,34 +108,60 @@
 
 &qspi {
 	#address-cells = <1>;
-    #size-cells = <0>;
-    status = "okay";
+	#size-cells = <0>;
+	status = "okay";
 	is-dual = <1>;
+	
+	/*
+		Dual N25Q512A11G1240E
+		128MB Total Size
+		256 Bytes Page Size
+		128KB Erase Size (64KB per IC, but dual parallel mode doubles it)
+	*/
 	flash@0 {
 		compatible = "micron,n25q512a", "jedec,spi-nor"; /* 128MB */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x0>;
 		spi-max-frequency = <108000000>; /* Based on Datasheet */
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
 
-		/* The following partitions are untested and addresses
-			may not be correct. */
-/*		partition@qspi-fsbl-uboot { /* for testing purpose */
-/*			label = "qspi-fsbl-uboot";
-			reg = <0x0 0x100000>;
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			
+			/*
+				BOOT.BIN
+				Size: 64,000KB
+				Addresses: 0 - 0x3E7FFFF
+			*/
+			partition@qsi-boot-bin {
+				label = "qspi-boot-bin";
+				reg = <0x0 0x3E80000>;
+			};
+			
+			/*
+				U-Boot Environment Variables
+				Size: 512KB
+				Addresses: 0x3E80000 - 0x3FFFFFF
+			*/
+			partition@qspi-bootscript {
+				label = "qspi-bootscript";
+				reg = <0x3E80000 0x80000>;
+			};
+			
+			/*
+				Full Space (BOOT.BIN & Environment)
+				Size: 64,512KB
+				Addresses: 0 - 0x3F00000
+			*/
+			partition@qspi-full {
+				label = "qspi-full";
+				reg = <0x0 0x3F00000>;
+			};
 		};
-		partition@qspi-linux { /* for testing purpose */
-/*			label = "qspi-linux";
-			reg = <0x100000 0x500000>;
-		};
-		partition@qspi-device-tree { /* for testing purpose */
-/*			label = "qspi-device-tree";
-        	reg = <0x600000 0x20000>;
-		};
-		partition@qspi-rootfs { /* for testing purpose */
-/*			label = "qspi-rootfs";
-			reg = <0x620000 0x5E0000>;
-		};*/
 	};
 };
 
